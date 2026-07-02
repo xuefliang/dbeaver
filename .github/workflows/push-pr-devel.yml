@@ -47,5 +47,13 @@ jobs:
 
       - name: Build dbeaver CE
         working-directory: ./dbeaver
-        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e
+        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e 2>&1 | tee "$GITHUB_WORKSPACE/mvn-build.log"; exit ${PIPESTATUS[0]}
         shell: bash
+
+      - name: Upload Maven log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: maven-build-log
+          path: ${{ github.workspace }}/mvn-build.log
+          retention-days: 1
