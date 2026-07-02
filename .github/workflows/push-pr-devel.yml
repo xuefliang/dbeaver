@@ -42,8 +42,8 @@ jobs:
 
       - name: Install dbeaver-common (target platform)
         working-directory: ./dbeaver-common
-        run: mvn install -DskipTests -q
+        run: mvn install -DskipTests -e
 
       - name: Build dbeaver CE
         working-directory: ./dbeaver
-        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -q
+        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e
