@@ -21,7 +21,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - name: Checkout dbeaver-common
         uses: actions/checkout@v4
@@ -41,6 +41,10 @@ jobs:
           distribution: ${{ env.JAVA_DISTRO }}
           cache: maven
 
-      - name: Build data.transfer plugin
+      - name: Install dbeaver-common (target platform)
+        working-directory: ./dbeaver-common
+        run: mvn install -DskipTests -q
+
+      - name: Build dbeaver CE
         working-directory: ./dbeaver
-        run: mvn package -f plugins/org.jkiss.dbeaver.data.transfer/pom.xml -DskipTests -q
+        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -q
