@@ -47,13 +47,17 @@ jobs:
 
       - name: Build dbeaver CE
         working-directory: ./dbeaver
-        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e 2>&1 | tee "$GITHUB_WORKSPACE/mvn-build.log"; exit ${PIPESTATUS[0]}
+        run: |
+          mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e 2>&1 | tee "$GITHUB_WORKSPACE/mvn-build.log"
+          rc=${PIPESTATUS[0]}
+          echo "MAVEN_EXIT_CODE=$rc" >> $GITHUB_ENV
+          echo "### Maven build result: exit code $rc" >> $GITHUB_STEP_SUMMARY
+          if [ $rc -ne 0 -a -f "$GITHUB_WORKSPACE/mvn-build.log" ]; then
+            echo "Last 100 lines of Maven log:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -100 "$GITHUB_WORKSPACE/mvn-build.log" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "Full log contains $(wc -l < "$GITHUB_WORKSPACE/mvn-build.log") lines" >> $GITHUB_STEP_SUMMARY
+          fi
+          exit $rc
         shell: bash
-
-      - name: Upload Maven log
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: maven-build-log
-          path: ${{ github.workspace }}/mvn-build.log
-          retention-days: 1
