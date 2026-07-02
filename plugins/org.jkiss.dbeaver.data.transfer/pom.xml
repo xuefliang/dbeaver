@@ -15,11 +15,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.apache.parquet</groupId>
-            <artifactId>parquet-format-structures</artifactId>
-            <version>1.14.4</version>
-        </dependency>
-        <dependency>
             <groupId>org.apache.thrift</groupId>
             <artifactId>libthrift</artifactId>
             <version>0.20.0</version>

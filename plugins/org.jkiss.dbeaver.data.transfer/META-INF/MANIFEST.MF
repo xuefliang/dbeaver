@@ -22,7 +22,8 @@ Export-Package: org.jkiss.dbeaver.tools.sql,
  org.jkiss.dbeaver.tools.transfer.task
 Require-Bundle: org.jkiss.dbeaver.model.sql;visibility:=reexport,
  org.jkiss.dbeaver.registry
-Import-Package: org.apache.parquet.format,
- org.apache.thrift,
+Bundle-ClassPath: .,
+ lib/parquet-format-structures-1.14.4.jar
+Import-Package: org.apache.thrift,
  org.apache.thrift.protocol
 Automatic-Module-Name: org.jkiss.dbeaver.data.transfer
