@@ -47,7 +47,20 @@ jobs:
 
       - name: Build dbeaver CE
         working-directory: ./dbeaver
-        run: mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests 2>&1 | tee "${{ runner.temp }}/ce-build.log"
+        run: |
+          mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests 2>&1 | tee "${{ runner.temp }}/ce-build.log"
+          exit ${PIPESTATUS[0]}
+        shell: bash
+
+      - name: Print error log tail
+        if: failure()
+        run: |
+          echo "::group::common-build.log tail"
+          tail -80 "${{ runner.temp }}/common-build.log" 2>/dev/null || echo "(no common-build.log)"
+          echo "::endgroup::"
+          echo "::group::ce-build.log tail"
+          tail -80 "${{ runner.temp }}/ce-build.log" 2>/dev/null || echo "(no ce-build.log)"
+          echo "::endgroup::"
         shell: bash
 
       - name: Upload build logs
