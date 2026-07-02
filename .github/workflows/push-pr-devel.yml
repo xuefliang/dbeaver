@@ -42,10 +42,18 @@ jobs:
 
       - name: Install dbeaver-common
         working-directory: ./dbeaver-common
-        run: mvn install -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/common-build.log"; exit ${PIPESTATUS[0]}
+        run: |
+          mvn install -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/common-build.log"
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then echo "::group::COMMON BUILD ERROR (last 60 lines)"; tail -60 "${{ runner.temp }}/common-build.log"; echo "::endgroup::"; fi
+          exit $rc
         shell: bash
 
       - name: Build dbeaver plugins only
         working-directory: ./dbeaver
-        run: mvn package -f plugins/pom.xml -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/ce-build.log"; exit ${PIPESTATUS[0]}
+        run: |
+          mvn package -f plugins/pom.xml -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/ce-build.log"
+          rc=${PIPESTATUS[0]}
+          if [ $rc -ne 0 ]; then echo "::group::CE BUILD ERROR (last 60 lines)"; tail -60 "${{ runner.temp }}/ce-build.log"; echo "::endgroup::"; fi
+          exit $rc
         shell: bash
