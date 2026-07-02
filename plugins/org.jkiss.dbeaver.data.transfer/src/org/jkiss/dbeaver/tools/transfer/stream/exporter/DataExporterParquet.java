@@ -29,12 +29,14 @@ import org.apache.parquet.format.PageType;
 import org.apache.parquet.format.RowGroup;
 import org.apache.parquet.format.SchemaElement;
 import org.apache.parquet.format.Type;
-import org.apache.thrift.TSerializer;
-import org.apache.thrift.protocol.TCompactProtocol;
+import shaded.parquet.org.apache.thrift.TException;
+import shaded.parquet.org.apache.thrift.protocol.TCompactProtocol;
+import shaded.parquet.org.apache.thrift.transport.TIOStreamTransport;
 import org.jkiss.code.NotNull;
 import org.jkiss.code.Nullable;
 import org.jkiss.dbeaver.DBException;
 import org.jkiss.dbeaver.Log;
+import org.jkiss.dbeaver.model.DBPDataKind;
 import org.jkiss.dbeaver.model.DBUtils;
 import org.jkiss.dbeaver.model.data.DBDAttributeBinding;
 import org.jkiss.dbeaver.model.data.DBDContent;
@@ -50,7 +52,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -58,7 +59,6 @@ import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class DataExporterParquet extends StreamExporterAbstract {
 
@@ -66,7 +66,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
     private static final byte[] MAGIC = "PAR1".getBytes(StandardCharsets.US_ASCII);
 
-    private static final Type mapType(org.jkiss.dbeaver.model.data.DBDValueKind kind) {
+    private static final Type mapType(DBPDataKind kind) {
         return switch (kind) {
             case BOOLEAN -> Type.BOOLEAN;
             case NUMERIC -> Type.DOUBLE;
@@ -75,7 +75,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
         };
     }
 
-    private static final ConvertedType mapConvertedType(org.jkiss.dbeaver.model.data.DBDValueKind kind) {
+    private static final ConvertedType mapConvertedType(DBPDataKind kind) {
         return switch (kind) {
             case STRING, CONTENT -> ConvertedType.UTF8;
             case DATETIME -> ConvertedType.TIMESTAMP_MICROS;
@@ -85,13 +85,11 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
     private DBDAttributeBinding[] columns;
     private List<Object[]> rows;
-    private TSerializer serializer;
 
     @Override
     public void init(IStreamDataExporterSite site) throws DBException {
         super.init(site);
         rows = new ArrayList<>();
-        serializer = new TSerializer(new TCompactProtocol.Factory());
     }
 
     @Override
@@ -177,7 +175,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
             );
             pageHeader.setData_page_header(dpHeader);
 
-            byte[] headerBytes = serializer.serialize(pageHeader);
+            byte[] headerBytes = serializeThrift(pageHeader);
 
             baos.write(headerBytes);
             baos.write(pageContent);
@@ -185,13 +183,13 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ColumnMetaData meta = new ColumnMetaData(
                 mapType(columns[ci].getDataKind()),
                 List.of(Encoding.PLAIN, Encoding.RLE),
+                List.of(),
                 CompressionCodec.UNCOMPRESSED,
                 nonNullCount,
                 headerBytes.length + pageContent.length,
                 headerBytes.length + pageContent.length,
                 fileOffset
             );
-            meta.setNull_count((long) (numRows - nonNullCount));
 
             ColumnChunk chunk = new ColumnChunk(fileOffset);
             chunk.setMeta_data(meta);
@@ -200,14 +198,13 @@ public class DataExporterParquet extends StreamExporterAbstract {
             fileOffset += headerBytes.length + pageContent.length;
         }
 
-        RowGroup rowGroup = new RowGroup(columnChunks, numRows);
-        rowGroup.setTotal_byte_size(fileOffset - 4);
+        long totalByteSize = fileOffset - 4;
+        RowGroup rowGroup = new RowGroup(columnChunks, totalByteSize, numRows);
 
-        FileMetaData metadata = new FileMetaData(schema, numRows, List.of(rowGroup));
+        FileMetaData metadata = new FileMetaData(2, schema, numRows, List.of(rowGroup));
         metadata.setCreated_by("DBeaver CE");
-        metadata.setVersion(2);
 
-        byte[] footerBytes = serializer.serialize(metadata);
+        byte[] footerBytes = serializeThrift(metadata);
 
         baos.write(footerBytes);
 
@@ -227,8 +224,15 @@ public class DataExporterParquet extends StreamExporterAbstract {
             rows.clear();
             rows = null;
         }
-        serializer = null;
         super.dispose();
+    }
+
+    private byte[] serializeThrift(shaded.parquet.org.apache.thrift.TBase<?, ?> struct) throws TException, IOException {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream();
+        TIOStreamTransport transport = new TIOStreamTransport(buf);
+        TCompactProtocol protocol = new TCompactProtocol(transport);
+        struct.write(protocol);
+        return buf.toByteArray();
     }
 
     @NotNull
