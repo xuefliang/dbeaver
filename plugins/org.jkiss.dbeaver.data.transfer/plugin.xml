@@ -246,9 +246,25 @@
                     <property id="rowDelimiter" label="%dataTransfer.processor.source.code.property.rowDelimiter.name" type="string" description="%dataTransfer.processor.source.code.property.rowDelimiter.description" defaultValue="default" validValues="default,\n,\r,\r\n,\n\r"/>
                 </propertyGroup>
             </processor>
+            <processor
+                    id="stream.parquet"
+                    shortId="parquet"
+                    class="org.jkiss.dbeaver.tools.transfer.stream.exporter.DataExporterParquet"
+                    description="%dataTransfer.processor.parquet.description"
+                    icon="icons/formats/parquet.svg"
+                    label="%dataTransfer.processor.parquet.name"
+                    binary="true"
+                    contentType="application/octet-stream"
+                    appFileExtension="parquet"
+                    appName="Parquet"
+                    order="15">
+                <propertyGroup label="%dataTransfer.processor.parquet.propertyGroup.general.label">
+                    <property id="extension" label="%dataTransfer.processor.parquet.property.extension.label" defaultValue="parquet"/>
+                    <property id="compression" label="%dataTransfer.processor.parquet.property.compression.name" type="string" description="%dataTransfer.processor.parquet.property.compression.description" defaultValue="SNAPPY" required="false" validValues="UNCOMPRESSED,SNAPPY,GZIP,LZO,LZ4,ZSTD"/>
+                    <property id="nullString" label="%dataTransfer.processor.parquet.property.nullString.name" type="string" description="%dataTransfer.processor.parquet.property.nullString.description" defaultValue="" required="false"/>
+                </propertyGroup>
+            </processor>
         </node>
-
-
 <!--        <transformer id="none" label="" description="PAss value as is" class="org.jkiss.dbeaver.tools.transfer.transformers.DataTransferTransformerNull"/>-->
         <transformer id="null" label="Set to NULL" description="Set column value to NULL" class="org.jkiss.dbeaver.tools.transfer.transformers.DataTransferTransformerNull"/>
 

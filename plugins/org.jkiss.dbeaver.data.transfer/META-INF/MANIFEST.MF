@@ -22,4 +22,12 @@ Export-Package: org.jkiss.dbeaver.tools.sql,
  org.jkiss.dbeaver.tools.transfer.task
 Require-Bundle: org.jkiss.dbeaver.model.sql;visibility:=reexport,
  org.jkiss.dbeaver.registry
+Import-Package: org.apache.hadoop.conf,
+ org.apache.parquet.column,
+ org.apache.parquet.hadoop,
+ org.apache.parquet.hadoop.api,
+ org.apache.parquet.hadoop.metadata,
+ org.apache.parquet.io,
+ org.apache.parquet.io.api,
+ org.apache.parquet.schema
 Automatic-Module-Name: org.jkiss.dbeaver.data.transfer
