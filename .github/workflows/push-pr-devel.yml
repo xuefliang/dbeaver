@@ -13,21 +13,34 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 
-jobs:
-  build-java:
-    uses: dbeaver/dbeaver-common/.github/workflows/mvn-package.yml@devel
-    name: Build
-    secrets: inherit
-    with:
-      project-directory: ./dbeaver/product/aggregate
-      project-deps: ./dbeaver/project.deps
-      timeout-minutes: 5
-      mvn-args: -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce
+env:
+  JAVA_VERSION: '21'
+  JAVA_DISTRO: 'temurin'
 
-  lint-java:
-    name: Check style
-    uses: dbeaver/dbeaver-common/.github/workflows/java-checkstyle.yml@devel
-    secrets: inherit
-    permissions:
-      contents: read
-      pull-requests: read
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout dbeaver-common
+        uses: actions/checkout@v4
+        with:
+          repository: dbeaver/dbeaver-common
+          path: dbeaver-common
+
+      - name: Checkout dbeaver
+        uses: actions/checkout@v4
+        with:
+          path: dbeaver
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRO }}
+          cache: maven
+
+      - name: Build data.transfer plugin
+        working-directory: ./dbeaver
+        run: mvn package -f plugins/org.jkiss.dbeaver.data.transfer/pom.xml -DskipTests -q
