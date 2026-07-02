@@ -27,9 +27,11 @@ jobs:
         run: git clone --depth 1 --branch devel https://github.com/dbeaver/dbeaver-common.git dbeaver-common
 
       - name: Checkout dbeaver
-        uses: actions/checkout@v4
-        with:
-          path: dbeaver
+        run: |
+          git clone --depth 1 --branch ${{ github.ref_name }} https://github.com/${{ github.repository }}.git dbeaver
+          cd dbeaver
+          git fetch --depth 1 origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
 
       - name: Setup Java
         uses: actions/setup-java@v4
