@@ -45,7 +45,7 @@ jobs:
         run: mvn install -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/common-build.log"; exit ${PIPESTATUS[0]}
         shell: bash
 
-      - name: Build dbeaver CE root
+      - name: Build data.transfer plugin only
         working-directory: ./dbeaver
-        run: mvn package -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/root-build.log"; exit ${PIPESTATUS[0]}
+        run: mvn package -f plugins/org.jkiss.dbeaver.data.transfer/pom.xml -DskipTests --no-transfer-progress -e 2>&1 | tee "${{ runner.temp }}/plugin-build.log"; exit ${PIPESTATUS[0]}
         shell: bash
