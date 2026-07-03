@@ -20,6 +20,7 @@ Export-Package: org.jkiss.dbeaver.tools.sql,
  org.jkiss.dbeaver.tools.transfer.stream.importer,
  org.jkiss.dbeaver.tools.transfer.stream.model,
  org.jkiss.dbeaver.tools.transfer.task
+Import-Package: org.slf4j
 Require-Bundle: org.jkiss.dbeaver.model.sql;visibility:=reexport,
  org.jkiss.dbeaver.registry
 Bundle-ClassPath: .,
