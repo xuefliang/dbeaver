@@ -161,23 +161,15 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageData = new ByteArrayOutputStream();
             DataOutputStream pd = new DataOutputStream(pageData);
 
-            int nonNullCount = 0;
-            byte[] defLevels = new byte[(numRows + 7) / 8];
-            int bitIndex = 0;
+            byte[] defLevelBits = new byte[(numRows + 7) / 8];
 
-            for (Object[] row : rows) {
-                Object val = row[ci];
+            for (int ri = 0; ri < numRows; ri++) {
+                Object val = rows.get(ri)[ci];
                 boolean isNull = val == null;
                 if (!isNull) {
                     encodePlainValue(pd, columns[ci], val);
-                    nonNullCount++;
+                    defLevelBits[ri / 8] |= (1 << (7 - (ri % 8)));
                 }
-                if (isNull) {
-                    defLevels[bitIndex / 8] &= ~(1 << (7 - (bitIndex % 8)));
-                } else {
-                    defLevels[bitIndex / 8] |= (1 << (7 - (bitIndex % 8)));
-                }
-                bitIndex++;
             }
 
             byte[] rawData = pageData.toByteArray();
@@ -185,13 +177,19 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageBytes = new ByteArrayOutputStream();
             DataOutputStream po = new DataOutputStream(pageBytes);
 
-            int numGroups = (numRows + 7) / 8;
-            po.write(0x03);
-            writeVarint(po, numRows);
-            po.write(0x00);
-            po.write(0x01);
-            po.write(defLevels, 0, numGroups);
+            // Repetition levels: bit_width = 0, all zeros, RLE encoding
+            po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(0).array());
+            writeVarint(po, (numRows << 1) | 1);
 
+            // Definition levels: bit_width = 1, bitmap, bit-packed encoding
+            po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(1).array());
+            int numGroups = (numRows + 7) / 8;
+            writeVarint(po, numGroups << 1);
+            for (int i = 0; i < numGroups; i++) {
+                po.write(reverseBits(defLevelBits[i]));
+            }
+
+            // Values
             po.write(rawData);
 
             byte[] pageContent = pageBytes.toByteArray();
@@ -209,9 +207,9 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
             DataPageHeader dpHeader = new DataPageHeader(
                 numRows,
+                Encoding.PLAIN,
                 Encoding.RLE,
-                Encoding.RLE,
-                Encoding.PLAIN
+                Encoding.RLE
             );
 
             PageHeader pageHeader = new PageHeader(
@@ -236,7 +234,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
                 List.of(Encoding.PLAIN, Encoding.RLE),
                 List.of(columns[ci].getName()),
                 compressionCodec,
-                nonNullCount,
+                numRows,
                 pageContent.length,
                 compressedContent.length,
                 fileOffset
@@ -346,22 +344,20 @@ public class DataExporterParquet extends StreamExporterAbstract {
     private void encodePlainValue(DataOutputStream out, DBDAttributeBinding col, Object value) throws IOException {
         switch (col.getDataKind()) {
             case NUMERIC -> {
+                double d;
                 if (value instanceof Number n) {
-                    out.writeDouble(n.doubleValue());
+                    d = n.doubleValue();
                 } else {
                     try {
-                        out.writeDouble(Double.parseDouble(value.toString()));
+                        d = Double.parseDouble(value.toString());
                     } catch (NumberFormatException e) {
-                        out.writeDouble(0);
+                        d = 0;
                     }
                 }
+                writeLongLE(out, Double.doubleToLongBits(d));
             }
             case BOOLEAN -> {
-                if (value instanceof Boolean b) {
-                    out.writeBoolean(b);
-                } else {
-                    out.writeBoolean(Boolean.parseBoolean(value.toString()));
-                }
+                out.write(value instanceof Boolean b && b || Boolean.parseBoolean(value.toString()) ? 1 : 0);
             }
             case DATETIME -> {
                 long micros;
@@ -376,16 +372,16 @@ public class DataExporterParquet extends StreamExporterAbstract {
                         micros = 0;
                     }
                 }
-                out.writeLong(micros);
+                writeLongLE(out, micros);
             }
             case BINARY -> {
                 byte[] bytes = value instanceof byte[] ba ? ba : value.toString().getBytes(StandardCharsets.UTF_8);
-                out.writeInt(bytes.length);
+                writeIntLE(out, bytes.length);
                 out.write(bytes);
             }
             default -> {
                 byte[] strBytes = value.toString().getBytes(StandardCharsets.UTF_8);
-                out.writeInt(strBytes.length);
+                writeIntLE(out, strBytes.length);
                 out.write(strBytes);
             }
         }
@@ -397,5 +393,27 @@ public class DataExporterParquet extends StreamExporterAbstract {
             value >>>= 7;
         }
         out.writeByte((byte) value);
+    }
+
+    private static byte reverseBits(byte b) {
+        return (byte) (Integer.reverse(b & 0xFF) >>> 24);
+    }
+
+    private void writeIntLE(DataOutputStream out, int v) throws IOException {
+        out.write(v & 0xFF);
+        out.write((v >> 8) & 0xFF);
+        out.write((v >> 16) & 0xFF);
+        out.write((v >> 24) & 0xFF);
+    }
+
+    private void writeLongLE(DataOutputStream out, long v) throws IOException {
+        out.write((int) (v & 0xFF));
+        out.write((int) ((v >> 8) & 0xFF));
+        out.write((int) ((v >> 16) & 0xFF));
+        out.write((int) ((v >> 24) & 0xFF));
+        out.write((int) ((v >> 32) & 0xFF));
+        out.write((int) ((v >> 40) & 0xFF));
+        out.write((int) ((v >> 48) & 0xFF));
+        out.write((int) ((v >> 56) & 0xFF));
     }
 }
