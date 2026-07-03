@@ -309,14 +309,18 @@ public class DataExporterParquet extends StreamExporterAbstract {
             try {
                 DBDContentStorage cs = content.getContents(session.getProgressMonitor());
                 if (cs == null) return null;
-                if (ContentUtils.isTextContent(content)) {
-                    try (InputStream is = cs.getContentStream()) {
-                        return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                try {
+                    if (ContentUtils.isTextContent(content)) {
+                        try (InputStream is = cs.getContentStream()) {
+                            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                        }
+                    } else {
+                        try (InputStream is = cs.getContentStream()) {
+                            return is.readAllBytes();
+                        }
                     }
-                } else {
-                    try (InputStream is = cs.getContentStream()) {
-                        return is.readAllBytes();
-                    }
+                } catch (IOException e) {
+                    throw new DBException("Error reading content value", e);
                 }
             } finally {
                 content.release();
