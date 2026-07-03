@@ -252,18 +252,18 @@ public class StreamTransferConsumer implements IDataTransferConsumer<StreamConsu
         try {
             processor.exportHeader(session);
         } catch (DBException e) {
-            log.warn("Error while exporting table header", e);
+            throw new DBCException("Error while exporting table header", e);
         } catch (IOException e) {
             throw new DBCException("IO error", e);
         }
     }
 
-    private void exportFooterInFile(@NotNull DBRProgressMonitor monitor) {
+    private void exportFooterInFile(@NotNull DBRProgressMonitor monitor) throws DBCException {
         if (processor != null) {
             try {
                 processor.exportFooter(monitor);
             } catch (Exception e) {
-                log.warn("Error while exporting table footer", e);
+                throw new DBCException("Error while exporting table footer", e);
             }
         }
     }
@@ -630,9 +630,11 @@ public class StreamTransferConsumer implements IDataTransferConsumer<StreamConsu
     @Override
     public void finishTransfer(@NotNull DBRProgressMonitor monitor, @Nullable Throwable error, @Nullable DBTTask task, boolean last) {
         if (!last && error == null) {
-            exportFooterInFile(monitor);
-
-            closeExporter();
+            try {
+                exportFooterInFile(monitor);
+            } finally {
+                closeExporter();
+            }
             return;
         }
 

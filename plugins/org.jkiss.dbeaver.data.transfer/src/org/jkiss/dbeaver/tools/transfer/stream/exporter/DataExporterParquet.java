@@ -137,7 +137,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
     @Override
     public void exportFooter(DBRProgressMonitor monitor) throws DBException, IOException {
-        if (rows.isEmpty()) {
+        if (rows.isEmpty() || columns == null) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(MAGIC);
             ByteBuffer lenBuf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
