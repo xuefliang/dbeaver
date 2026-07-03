@@ -294,6 +294,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
         List<SchemaElement> schema = new ArrayList<>();
         SchemaElement root = new SchemaElement("dbeaver_export");
         root.setRepetition_type(FieldRepetitionType.REQUIRED);
+        root.setNum_children(columns.length);
         schema.add(root);
 
         for (DBDAttributeBinding col : columns) {
