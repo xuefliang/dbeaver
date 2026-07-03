@@ -260,7 +260,7 @@
                     order="15">
                 <propertyGroup label="%dataTransfer.processor.parquet.propertyGroup.general.label">
                     <property id="extension" label="%dataTransfer.processor.parquet.property.extension.label" defaultValue="parquet"/>
-                    <property id="compression" label="%dataTransfer.processor.parquet.property.compression.name" type="string" description="%dataTransfer.processor.parquet.property.compression.description" defaultValue="SNAPPY" required="false" validValues="UNCOMPRESSED,SNAPPY,GZIP,LZO,LZ4,ZSTD"/>
+                    <property id="compression" label="%dataTransfer.processor.parquet.property.compression.name" type="string" description="%dataTransfer.processor.parquet.property.compression.description" defaultValue="UNCOMPRESSED" required="false" validValues="UNCOMPRESSED,GZIP"/>
                     <property id="nullString" label="%dataTransfer.processor.parquet.property.nullString.name" type="string" description="%dataTransfer.processor.parquet.property.nullString.description" defaultValue="" required="false"/>
                 </propertyGroup>
             </processor>

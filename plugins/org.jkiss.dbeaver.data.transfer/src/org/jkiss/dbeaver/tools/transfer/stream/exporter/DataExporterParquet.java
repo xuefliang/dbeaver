@@ -110,7 +110,8 @@ public class DataExporterParquet extends StreamExporterAbstract {
                 case GZIP:
                     return codec;
                 default:
-                    throw new DBException("Compression codec " + compStr + " is not supported. Only UNCOMPRESSED and GZIP are available.");
+                    log.warn("Compression codec " + compStr + " is not supported, using UNCOMPRESSED");
+                    return CompressionCodec.UNCOMPRESSED;
             }
         } catch (IllegalArgumentException e) {
             throw new DBException("Unknown compression codec: " + compStr);
@@ -137,6 +138,13 @@ public class DataExporterParquet extends StreamExporterAbstract {
     @Override
     public void exportFooter(DBRProgressMonitor monitor) throws DBException, IOException {
         if (rows.isEmpty()) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            baos.write(MAGIC);
+            ByteBuffer lenBuf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
+            lenBuf.putInt(0);
+            baos.write(lenBuf.array());
+            baos.write(MAGIC);
+            baos.writeTo(getOutputStream());
             return;
         }
 
