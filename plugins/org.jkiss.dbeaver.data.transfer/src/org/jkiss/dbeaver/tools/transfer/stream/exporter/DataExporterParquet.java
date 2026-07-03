@@ -342,10 +342,37 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
     private void encodePlainValue(DataOutputStream out, DBDAttributeBinding col, Object value) throws IOException {
         switch (col.getDataKind()) {
-            case NUMERIC -> out.writeDouble(((Number) value).doubleValue());
-            case BOOLEAN -> out.writeBoolean((Boolean) value);
+            case NUMERIC -> {
+                if (value instanceof Number n) {
+                    out.writeDouble(n.doubleValue());
+                } else {
+                    try {
+                        out.writeDouble(Double.parseDouble(value.toString()));
+                    } catch (NumberFormatException e) {
+                        out.writeDouble(0);
+                    }
+                }
+            }
+            case BOOLEAN -> {
+                if (value instanceof Boolean b) {
+                    out.writeBoolean(b);
+                } else {
+                    out.writeBoolean(Boolean.parseBoolean(value.toString()));
+                }
+            }
             case DATETIME -> {
-                long micros = value instanceof Long lv ? lv : ((java.util.Date) value).getTime() * 1000;
+                long micros;
+                if (value instanceof Long lv) {
+                    micros = lv;
+                } else if (value instanceof java.util.Date d) {
+                    micros = d.getTime() * 1000;
+                } else {
+                    try {
+                        micros = Long.parseLong(value.toString());
+                    } catch (NumberFormatException e) {
+                        micros = 0;
+                    }
+                }
                 out.writeLong(micros);
             }
             case BINARY -> {
