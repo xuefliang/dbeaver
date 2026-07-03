@@ -185,9 +185,11 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageBytes = new ByteArrayOutputStream();
             DataOutputStream po = new DataOutputStream(pageBytes);
 
-            po.write(1);
             int numGroups = (numRows + 7) / 8;
-            writeVarint(po, (numGroups << 1) | 1);
+            po.write(0x03);
+            writeVarint(po, numRows);
+            po.write(0x00);
+            po.write(0x01);
             po.write(defLevels, 0, numGroups);
 
             po.write(rawData);
@@ -206,10 +208,10 @@ public class DataExporterParquet extends StreamExporterAbstract {
             }
 
             DataPageHeader dpHeader = new DataPageHeader(
-                nonNullCount,
-                Encoding.PLAIN,
+                numRows,
                 Encoding.RLE,
-                Encoding.RLE
+                Encoding.RLE,
+                Encoding.PLAIN
             );
 
             PageHeader pageHeader = new PageHeader(
@@ -232,7 +234,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ColumnMetaData meta = new ColumnMetaData(
                 mapType(columns[ci].getDataKind()),
                 List.of(Encoding.PLAIN, Encoding.RLE),
-                List.of(),
+                List.of(columns[ci].getName()),
                 compressionCodec,
                 nonNullCount,
                 pageContent.length,
