@@ -138,10 +138,30 @@ public class DataExporterParquet extends StreamExporterAbstract {
     @Override
     public void exportFooter(DBRProgressMonitor monitor) throws DBException, IOException {
         if (rows.isEmpty() || columns == null) {
+            // Emit a valid empty Parquet file: magic + footer(metadata with schema and 0 rows) + footer length + magic
+            List<SchemaElement> schema;
+            if (columns == null) {
+                schema = new ArrayList<>();
+                SchemaElement root = new SchemaElement("dbeaver_export");
+                root.setRepetition_type(FieldRepetitionType.REQUIRED);
+                root.setNum_children(0);
+                schema.add(root);
+            } else {
+                schema = buildSchema();
+            }
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             baos.write(MAGIC);
+            FileMetaData metadata = new FileMetaData(2, schema, 0, new ArrayList<>());
+            metadata.setCreated_by("DBeaver CE");
+            byte[] footerBytes;
+            try {
+                footerBytes = serializeThrift(metadata);
+            } catch (TException e) {
+                throw new IOException("Failed to serialize footer metadata", e);
+            }
+            baos.write(footerBytes);
             ByteBuffer lenBuf = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN);
-            lenBuf.putInt(0);
+            lenBuf.putInt(footerBytes.length);
             baos.write(lenBuf.array());
             baos.write(MAGIC);
             baos.writeTo(getOutputStream());
@@ -162,13 +182,15 @@ public class DataExporterParquet extends StreamExporterAbstract {
             DataOutputStream pd = new DataOutputStream(pageData);
 
             byte[] defLevelBits = new byte[(numRows + 7) / 8];
+            int valuesCount = 0;
 
             for (int ri = 0; ri < numRows; ri++) {
                 Object val = rows.get(ri)[ci];
                 boolean isNull = val == null;
                 if (!isNull) {
                     encodePlainValue(pd, columns[ci], val);
-                    defLevelBits[ri / 8] |= (1 << (7 - (ri % 8)));
+                    defLevelBits[ri / 8] |= (1 << (ri % 8));
+                    valuesCount++;
                 }
             }
 
@@ -177,19 +199,18 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageBytes = new ByteArrayOutputStream();
             DataOutputStream po = new DataOutputStream(pageBytes);
 
-            // Repetition levels: bit_width = 0, all zeros, RLE encoding
+            // Repetition levels: max=0, all zeros, RLE run
             po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(0).array());
-            writeVarint(po, (numRows << 1) | 1);
+            writeVarint(po, numRows << 1);
 
-            // Definition levels: bit_width = 1, bitmap, bit-packed encoding
+            // Definition levels: max=1 (optional), bit-packed
             po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(1).array());
             int numGroups = (numRows + 7) / 8;
-            writeVarint(po, numGroups << 1);
+            writeVarint(po, (numGroups << 1) | 1);
             for (int i = 0; i < numGroups; i++) {
-                po.write(reverseBits(defLevelBits[i]));
+                po.write(defLevelBits[i]);
             }
 
-            // Values
             po.write(rawData);
 
             byte[] pageContent = pageBytes.toByteArray();
@@ -393,10 +414,6 @@ public class DataExporterParquet extends StreamExporterAbstract {
             value >>>= 7;
         }
         out.writeByte((byte) value);
-    }
-
-    private static byte reverseBits(byte b) {
-        return (byte) (Integer.reverse(b & 0xFF) >>> 24);
     }
 
     private void writeIntLE(DataOutputStream out, int v) throws IOException {
