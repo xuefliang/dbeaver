@@ -24,5 +24,4 @@ Require-Bundle: org.jkiss.dbeaver.model.sql;visibility:=reexport,
  org.jkiss.dbeaver.registry
 Bundle-ClassPath: .,
  lib/parquet-format-structures-1.14.4.jar
-
 Automatic-Module-Name: org.jkiss.dbeaver.data.transfer
