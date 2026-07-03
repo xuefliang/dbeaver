@@ -48,7 +48,7 @@ jobs:
       - name: Build dbeaver CE
         working-directory: ./dbeaver
         run: |
-          mvn package -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e 2>&1 | tee "$GITHUB_WORKSPACE/mvn-build.log"
+          mvn verify -f product/aggregate/pom.xml -Pproduct-dbeaver-ce,product-dbeaver-eclipse-ce -DskipTests -e 2>&1 | tee "$GITHUB_WORKSPACE/mvn-build.log"
           rc=${PIPESTATUS[0]}
           echo "MAVEN_EXIT_CODE=$rc" >> $GITHUB_ENV
           echo "### Maven build result: exit code $rc" >> $GITHUB_STEP_SUMMARY
@@ -61,3 +61,10 @@ jobs:
           fi
           exit $rc
         shell: bash
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbeaver-ce-products
+          path: dbeaver/product/community/target/products/
