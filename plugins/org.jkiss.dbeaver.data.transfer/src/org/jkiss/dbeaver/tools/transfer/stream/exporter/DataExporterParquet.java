@@ -46,12 +46,12 @@ import org.jkiss.dbeaver.model.exec.DBCSession;
 import org.jkiss.dbeaver.model.runtime.DBRProgressMonitor;
 import org.jkiss.dbeaver.tools.transfer.stream.IStreamDataExporterSite;
 import org.jkiss.dbeaver.utils.ContentUtils;
-import org.jkiss.utils.CommonUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.zip.GZIPOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
@@ -85,11 +85,36 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
     private DBDAttributeBinding[] columns;
     private List<Object[]> rows;
+    private CompressionCodec compressionCodec;
 
     @Override
     public void init(IStreamDataExporterSite site) throws DBException {
         super.init(site);
         rows = new ArrayList<>();
+        compressionCodec = parseCompressionCodec(site);
+    }
+
+    private static CompressionCodec parseCompressionCodec(IStreamDataExporterSite site) throws DBException {
+        Object compProp = site.getProperties().get("compression");
+        if (compProp == null) {
+            return CompressionCodec.UNCOMPRESSED;
+        }
+        String compStr = compProp.toString().trim();
+        if (compStr.isEmpty()) {
+            return CompressionCodec.UNCOMPRESSED;
+        }
+        try {
+            CompressionCodec codec = CompressionCodec.valueOf(compStr);
+            switch (codec) {
+                case UNCOMPRESSED:
+                case GZIP:
+                    return codec;
+                default:
+                    throw new DBException("Compression codec " + compStr + " is not supported. Only UNCOMPRESSED and GZIP are available.");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new DBException("Unknown compression codec: " + compStr);
+        }
     }
 
     @Override
@@ -161,6 +186,17 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
             byte[] pageContent = pageBytes.toByteArray();
 
+            byte[] compressedContent;
+            if (compressionCodec == CompressionCodec.GZIP) {
+                ByteArrayOutputStream cbos = new ByteArrayOutputStream();
+                try (GZIPOutputStream gzipOut = new GZIPOutputStream(cbos)) {
+                    gzipOut.write(pageContent);
+                }
+                compressedContent = cbos.toByteArray();
+            } else {
+                compressedContent = pageContent;
+            }
+
             DataPageHeader dpHeader = new DataPageHeader(
                 nonNullCount,
                 Encoding.PLAIN,
@@ -171,23 +207,28 @@ public class DataExporterParquet extends StreamExporterAbstract {
             PageHeader pageHeader = new PageHeader(
                 PageType.DATA_PAGE,
                 pageContent.length,
-                pageContent.length
+                compressedContent.length
             );
             pageHeader.setData_page_header(dpHeader);
 
-            byte[] headerBytes = serializeThrift(pageHeader);
+            byte[] headerBytes;
+            try {
+                headerBytes = serializeThrift(pageHeader);
+            } catch (TException e) {
+                throw new IOException("Failed to serialize page header", e);
+            }
 
             baos.write(headerBytes);
-            baos.write(pageContent);
+            baos.write(compressedContent);
 
             ColumnMetaData meta = new ColumnMetaData(
                 mapType(columns[ci].getDataKind()),
                 List.of(Encoding.PLAIN, Encoding.RLE),
                 List.of(),
-                CompressionCodec.UNCOMPRESSED,
+                compressionCodec,
                 nonNullCount,
-                headerBytes.length + pageContent.length,
-                headerBytes.length + pageContent.length,
+                pageContent.length,
+                compressedContent.length,
                 fileOffset
             );
 
@@ -195,7 +236,7 @@ public class DataExporterParquet extends StreamExporterAbstract {
             chunk.setMeta_data(meta);
             columnChunks.add(chunk);
 
-            fileOffset += headerBytes.length + pageContent.length;
+            fileOffset += headerBytes.length + compressedContent.length;
         }
 
         long totalByteSize = fileOffset - 4;
@@ -204,7 +245,12 @@ public class DataExporterParquet extends StreamExporterAbstract {
         FileMetaData metadata = new FileMetaData(2, schema, numRows, List.of(rowGroup));
         metadata.setCreated_by("DBeaver CE");
 
-        byte[] footerBytes = serializeThrift(metadata);
+        byte[] footerBytes;
+        try {
+            footerBytes = serializeThrift(metadata);
+        } catch (TException e) {
+            throw new IOException("Failed to serialize footer metadata", e);
+        }
 
         baos.write(footerBytes);
 
