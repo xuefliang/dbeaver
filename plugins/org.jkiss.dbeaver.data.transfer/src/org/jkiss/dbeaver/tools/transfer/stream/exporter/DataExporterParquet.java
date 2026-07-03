@@ -199,10 +199,6 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageBytes = new ByteArrayOutputStream();
             DataOutputStream po = new DataOutputStream(pageBytes);
 
-            // Repetition levels: max=0, all zeros, RLE run
-            po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(0).array());
-            writeVarint(po, numRows << 1);
-
             // Definition levels: max=1 (optional), bit-packed
             po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(1).array());
             int numGroups = (numRows + 7) / 8;
