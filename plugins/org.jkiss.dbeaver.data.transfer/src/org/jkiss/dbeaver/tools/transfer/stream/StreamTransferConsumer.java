@@ -632,6 +632,9 @@ public class StreamTransferConsumer implements IDataTransferConsumer<StreamConsu
         if (!last && error == null) {
             try {
                 exportFooterInFile(monitor);
+            } catch (DBCException e) {
+                log.error("Error while exporting table footer", e);
+                DBWorkbench.getPlatformUI().showError("Export error", "Error while exporting table footer", e);
             } finally {
                 closeExporter();
             }
