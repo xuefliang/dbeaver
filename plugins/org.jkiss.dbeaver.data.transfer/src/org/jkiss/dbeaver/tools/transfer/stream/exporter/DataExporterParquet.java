@@ -227,11 +227,13 @@ public class DataExporterParquet extends StreamExporterAbstract {
                 compressedContent = pageContent;
             }
 
+            // NOTE: Thrift field order is (num_values, encoding, definition_level_encoding, repetition_level_encoding)
+            // Do NOT reorder - must match the parquet-format Thrift IDL exactly
             DataPageHeader dpHeader = new DataPageHeader(
                 numRows,
-                Encoding.RLE,
-                Encoding.RLE,
-                Encoding.PLAIN
+                Encoding.PLAIN,       // field 2: value encoding
+                Encoding.RLE,         // field 3: definition levels encoding
+                Encoding.RLE          // field 4: repetition levels encoding
             );
 
             PageHeader pageHeader = new PageHeader(
