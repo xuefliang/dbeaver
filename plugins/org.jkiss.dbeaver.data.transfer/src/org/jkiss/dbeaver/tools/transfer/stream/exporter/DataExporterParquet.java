@@ -199,15 +199,18 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageBytes = new ByteArrayOutputStream();
             DataOutputStream po = new DataOutputStream(pageBytes);
 
-            // Definition levels: RLE/bit-pack hybrid per Parquet specification
-            // <1 byte bit-width> <RLE/bit-pack hybrid data>
-            int bitWidth = 1; // OPTIONAL column: max def level = 1
-            po.write(bitWidth);
+            // Definition levels: RLE/bit-pack hybrid (DataPageV1 format)
+            // <4-byte LE length> <RLE/bit-pack hybrid data>
+            ByteArrayOutputStream rleBuf = new ByteArrayOutputStream();
+            DataOutputStream rleOut = new DataOutputStream(rleBuf);
             int numGroups = (numRows + 7) / 8;
-            writeVarint(po, (numGroups << 1) | 1);
+            writeVarint(rleOut, (numGroups << 1) | 1);
             for (int i = 0; i < numGroups; i++) {
-                po.write(defLevelBits[i]);
+                rleOut.write(defLevelBits[i]);
             }
+            byte[] rleBytes = rleBuf.toByteArray();
+            po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(rleBytes.length).array());
+            po.write(rleBytes);
 
             po.write(rawData);
 
@@ -254,8 +257,8 @@ public class DataExporterParquet extends StreamExporterAbstract {
                 List.of(columns[ci].getName()),
                 compressionCodec,
                 numRows,
-                pageContent.length,
-                compressedContent.length,
+                pageContent.length + headerBytes.length,
+                compressedContent.length + headerBytes.length,
                 fileOffset
             );
 
