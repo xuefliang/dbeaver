@@ -224,9 +224,9 @@ public class DataExporterParquet extends StreamExporterAbstract {
 
             DataPageHeader dpHeader = new DataPageHeader(
                 numRows,
-                Encoding.PLAIN,
                 Encoding.RLE,
-                Encoding.RLE
+                Encoding.RLE,
+                Encoding.PLAIN
             );
 
             PageHeader pageHeader = new PageHeader(
