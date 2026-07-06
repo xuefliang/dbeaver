@@ -199,13 +199,20 @@ public class DataExporterParquet extends StreamExporterAbstract {
             ByteArrayOutputStream pageBytes = new ByteArrayOutputStream();
             DataOutputStream po = new DataOutputStream(pageBytes);
 
-            // Definition levels: max=1 (optional), bit-packed
-            po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(1).array());
+            // Definition levels: RLE/bit-pack hybrid <4-byte container length> <runs>
+            // Per Parquet spec, the bit-width is NOT embedded in page data;
+            // it is derived from max definition level (pass as parameter to Decode).
+            // The container length allows the reader to skip to value data.
+            ByteArrayOutputStream rleBuf = new ByteArrayOutputStream();
+            DataOutputStream rleOut = new DataOutputStream(rleBuf);
             int numGroups = (numRows + 7) / 8;
-            writeVarint(po, (numGroups << 1) | 1);
+            writeVarint(rleOut, (numGroups << 1) | 1);
             for (int i = 0; i < numGroups; i++) {
-                po.write(defLevelBits[i]);
+                rleOut.write(defLevelBits[i]);
             }
+            byte[] rleBytes = rleBuf.toByteArray();
+            po.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(rleBytes.length).array());
+            po.write(rleBytes);
 
             po.write(rawData);
 
